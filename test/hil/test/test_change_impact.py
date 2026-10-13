@@ -1838,7 +1838,7 @@ class TestBuildClassifier(unittest.TestCase):
         return change_impact.classify_build(files, REPO)
 
     def test_noncode_and_test_hil_contribute_nothing(self):        # rules 1, 2
-        s = self.b(['docs/info/index.rst', 'README.rst', 'test/hil/hil_test.py', '.claude/skills/hil/SKILL.md'])
+        s = self.b(['docs/info/index.rst', 'README.rst', 'test/hil/hil_test.py', '.claude/skills/hil-contract/SKILL.md'])
         self.assertFalse(s['full'])
         self.assertEqual(s['families'], [])
         self.assertEqual(s['family_examples'], {})
