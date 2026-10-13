@@ -288,8 +288,9 @@ bool tud_audio_rx_done_isr(uint8_t rhport, uint16_t n_bytes_received, uint8_t fu
 // FB endpoint interval till it's changed.
 //
 // The feedback format is specified to be 16.16 for HS and 10.14 for FS devices (see Universal Serial Bus
-// Specification Revision 2.0 5.12.4.2). For simplicity, this function always uses 16.16 format. For FS devices,
-// the driver will automatically convert the value to 10.14 format.
+// Specification Revision 2.0 5.12.4.2). For simplicity, this function always uses 16.16 format. The driver sends
+// it as 10.14 in 3 bytes for UAC1, and for a UAC2 FS device when tud_audio_feedback_format_10_14_cb() returns
+// true; otherwise as 16.16 in 4 bytes.
 //
 // Note that due to a bug in its USB Audio 2.0 driver, Windows currently requires 16.16 format for _all_ USB 2.0
 // devices. On Linux and it seems the driver can work with either format.
@@ -342,6 +343,13 @@ typedef struct {
 
 // Invoked when needed to set feedback parameters
 void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf, audio_feedback_params_t* feedback_param);
+
+// Invoked before each feedback transfer of a UAC2 full-speed device, to choose its format: true sends the USB 2.0
+// spec's 10.14 in 3 bytes, false sends 16.16 in 4 bytes. Windows' UAC2 driver needs 16.16 at full speed too,
+// while macOS needs 10.14, and Linux accepts either. So return true unless the host is Windows (for example,
+// when the device has seen Windows' Microsoft OS 2.0 descriptor request). Declare the feedback endpoint with
+// wMaxPacketSize 4: a 3-byte packet fits it. Default: false, the driver's previous behavior.
+bool tud_audio_feedback_format_10_14_cb(uint8_t func_id);
 
 // Callback in ISR context, invoked periodically according to feedback endpoint bInterval.
 // Could be used to compute and update feedback value, should be placed in RAM if possible

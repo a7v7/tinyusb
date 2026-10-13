@@ -308,6 +308,11 @@ TU_ATTR_WEAK void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf,
   feedback_param->method = AUDIO_FEEDBACK_METHOD_DISABLED;
 }
 
+TU_ATTR_WEAK bool tud_audio_feedback_format_10_14_cb(uint8_t func_id) {
+  (void) func_id;
+  return false;
+}
+
 TU_ATTR_WEAK TU_ATTR_FAST_FUNC void tud_audio_feedback_interval_isr(uint8_t func_id, uint32_t frame_number, uint8_t interval_shift) {
   (void) func_id;
   (void) frame_number;
@@ -594,8 +599,12 @@ bool tud_audio_int_n_write(uint8_t func_id, const audio_interrupt_data_t *data) 
 static inline bool audiod_fb_send(uint8_t func_id, bool is_isr) {
   audiod_function_t *audio = &_audiod_fct[func_id];
   uint8_t uac_version = tud_audio_n_version(func_id);
+  // 10.14 in 3 bytes for UAC1; for UAC2 at full speed if the app asks for it (the spec's format, which macOS
+  // needs; Windows needs 16.16). See tud_audio_feedback_format_10_14_cb().
+  bool const fmt_10_14 = (uac_version == 1) ||
+                         (tud_speed_get() == TUSB_SPEED_FULL && tud_audio_feedback_format_10_14_cb(func_id));
   // Format the feedback value
-  if (uac_version == 1) {
+  if (fmt_10_14) {
     uint8_t *fb = (uint8_t *) audio->fb_buf;
 
     // For FS format is 10.14
@@ -607,7 +616,7 @@ static inline bool audiod_fb_send(uint8_t func_id, bool is_isr) {
     *audio->fb_buf = audio->feedback.value;
   }
 
-  return usbd_edpt_xfer(audio->rhport, audio->ep_fb, (uint8_t *) audio->fb_buf, uac_version == 1 ? 3 : 4, is_isr);
+  return usbd_edpt_xfer(audio->rhport, audio->ep_fb, (uint8_t *) audio->fb_buf, fmt_10_14 ? 3 : 4, is_isr);
 }
 
 uint32_t tud_audio_feedback_update(uint8_t func_id, uint32_t cycles) {
